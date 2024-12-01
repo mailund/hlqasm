@@ -10,8 +10,8 @@ class Gate:
     opcode: str
     qubits: QUBITS
 
-    def __init__(self, qubits: QUBITS) -> None:
-        self.opcode = self.__class__.__name__.lower()
+    def __init__(self, qubits: QUBITS, opcode: str | None = None) -> None:
+        self.opcode = opcode or self.__class__.__name__.lower()
         self.qubits = qubits
 
     @property
@@ -64,15 +64,20 @@ class InverseGate(Gate):
 
 # Making it a little easier to get the right constructors
 class OneBitGate(Gate):
-    def __init__(self, qubit: QUBIT) -> None:
-        super().__init__((qubit,))
+
+    def __init__(self, qubit: QUBIT, opcode: str | None = None) -> None:
+        super().__init__((qubit,), opcode)
 
 
 class TwoBitGate(Gate):
-    def __init__(self, qubit1: QUBIT, qubit2: QUBIT) -> None:
-        super().__init__((qubit1, qubit2))
+
+    def __init__(self, qubit1: QUBIT, qubit2: QUBIT, opcode: str | None = None) -> None:
+        super().__init__((qubit1, qubit2), opcode)
 
 
 class ThreeBitGate(Gate):
-    def __init__(self, qubit1: QUBIT, qubit2: QUBIT, qubit3: QUBIT) -> None:
-        super().__init__((qubit1, qubit2, qubit3))
+
+    def __init__(
+        self, qubit1: QUBIT, qubit2: QUBIT, qubit3: QUBIT, opcode: str | None = None
+    ) -> None:
+        super().__init__((qubit1, qubit2, qubit3), opcode)

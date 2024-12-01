@@ -1,4 +1,5 @@
 import itertools
+from graphlib import TopologicalSorter
 from typing import Iterable, Iterator, Protocol
 
 from gates import Gate
@@ -82,8 +83,16 @@ def extract_gate_types(gates: Iterable[Gate]) -> set[type[Gate]]:
 def emit_circuit(circuit: CIRCUIT) -> str:
     global_scope = GlobalQubitScope()
     gates = flatten_circuit(circuit)
-    gate_types = extract_gate_types(gates)
+
+    # Sort the gate types since qASM (or at least qiskit) requires
+    # that we define a gate before we use it.
+    deps = {
+        gate_type: [dep for dep in gate_type.dependencies]
+        for gate_type in extract_gate_types(gates)
+    }
+    gate_types = TopologicalSorter(deps).static_order()
     gate_defs = "\n".join(filter(None, map(emit_gate_type, gate_types)))
+
     return "\n".join(
         [
             "OPENQASM 3.0;",

@@ -19,4 +19,5 @@ x reg[1];
 h reg[0];
 cx reg[0],reg[1];
 inv @ h reg[0];
+u1(1.5707963267948966) reg[0];
 bar reg[0],reg[1],reg[2];
