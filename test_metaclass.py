@@ -8,21 +8,30 @@ QUBIT = int
 QUBITS = tuple[QUBIT, ...]
 
 
-class GateType(type):
+class GateType[N](type):
     opcode: str
 
-    def __init__(
+    def __new__(
         cls, name: str, bases: tuple[type, ...], namespace: dict[str, object]
-    ) -> None:
-        super().__init__(name, bases, namespace)
-        cls.opcode = name.lower()
+    ) -> Any:
+        namespace["opcode"] = name.lower()
+        return super().__new__(cls, name, bases, namespace)
+
+    # All gates must be creatable from the right number of qubits...
+    @overload
+    def __call__(cls: GateType[L[0]]) -> Gate: ...
+    @overload
+    def __call__(cls: GateType[L[1]], q: QUBIT, /) -> Gate: ...
+    @overload
+    def __call__(cls: GateType[L[2]], q1: QUBIT, q2: QUBIT, /) -> Gate: ...
+    @overload
+    def __call__(cls, *qubits: QUBIT) -> Gate: ...
 
     def __call__(cls, *qubits: QUBIT) -> Gate:
         return super().__call__(*qubits)
 
 
-class Gate(metaclass=GateType):
-    opcode: str
+class Gate(metaclass=GateType[Any]):
     qubits: QUBITS
 
     def __init__(self, *qubits: QUBIT) -> None:
@@ -38,7 +47,7 @@ class Gate(metaclass=GateType):
     def control(self, control_str: str, ctrl_qubits: QUBITS) -> Gate:
         control_str = control_str or "".join(str(int(a >= 0)) for a in ctrl_qubits)
         control_bits = tuple(~a if a < 0 else a for a in ctrl_qubits)
-        return ControlledGate(self, control_str, control_bits)
+        return ControlledGateType(self, control_str)(*control_bits)
 
     def __or__(self, ctrl: tuple[str, QUBITS] | QUBITS | int) -> Gate:
         """Syntactic sugar for controlling the gate."""
@@ -66,26 +75,32 @@ class Gate(metaclass=GateType):
         return super().__init_subclass__()
 
 
-class InverseGateType(GateType):
+class InverseGateType(GateType[L[0]]):
     def __new__(cls, underlying: Gate) -> InverseGateType:
         name = f"{underlying.__class__.__name__}†"
         bases = (Gate,)
-        namespace = {"underlying": underlying}
+        namespace: dict[str, object] = {"underlying": underlying}
         return super().__new__(cls, name, bases, namespace)
 
     def __init__(cls, underlying: Gate) -> None:
         cls.underlying = underlying
         cls.opcode = f"inv @ {underlying.opcode}"
 
-    def __call__(cls) -> Gate:
-        return super().__call__(*cls.underlying.qubits)
 
+class ControlledGateType[N](GateType[N]):
+    def __new__(cls, underlying: Gate, ctrl: str) -> ControlledGateType[N]:
+        name = f"[{underlying.__class__.__name__} | {ctrl}]"
+        bases = (Gate,)
+        namespace: dict[str, object] = {"underlying": underlying, "ctrl": ctrl}
+        return super().__new__(cls, name, bases, namespace)
 
-class ControlledGate(Gate):
-    def __init__(self, underlying: Gate, ctrl_str: str, ctrl_qubits: QUBITS) -> None:
-        super().__init__(underlying.qubits + ctrl_qubits)
-        ctrl_opcode = " @ ".join("ctrl" if c == "1" else "negctrl" for c in ctrl_str)
-        self.opcode = f"{ctrl_opcode} @ {underlying.opcode}"
+    def __init__(cls, underlying: Gate, ctrl: str) -> None:
+        cls.underlying = underlying
+        ctrl_opcode = " @ ".join("ctrl" if c == "1" else "negctrl" for c in ctrl)
+        cls.opcode = f"{ctrl_opcode} @ {underlying.opcode}"
+
+    def __call__(cls, *control_bits: QUBIT) -> Gate:
+        return super().__call__(*control_bits, *cls.underlying.qubits)
 
 
 class H(Gate):
@@ -95,7 +110,6 @@ class H(Gate):
 
 class X(Gate):
     def __init__(self, qubit: QUBIT) -> None:
-        print("X.__init__", qubit)
         super().__init__(qubit)
 
 
@@ -105,12 +119,15 @@ class CX(Gate):
 
 
 circuit: list[Gate] = [
-    # H((0)) | ("01", (1, 2)),
-    X((1)),
-    H((0)),
+    H(0) | ("01", (1, 2)),
+    X(1),
+    H(0),
     CX(0, 1),
-    H((0)).inv,
+    H(0).inv,
     # u1(math.pi / 2)(0),
     # Bar(0, 1, 2),
 ]
 print(circuit)
+print()
+for gate in circuit:
+    print(gate.opcode, gate.qubits)
