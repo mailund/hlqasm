@@ -1,8 +1,8 @@
 import math
 
 from circuits import CIRCUIT, emit_circuit
-from gates import QUBITS, Gate, GateType, OneBitGate, ThreeBitGate
-from stdgates import CX, H, X
+from gates import OneBitGate, ThreeBitGate
+from stdgates import CX, H, X, u1
 
 
 class Bar(ThreeBitGate):
@@ -10,14 +10,6 @@ class Bar(ThreeBitGate):
         body = (H((0)),)
 
     body = (CX(0, 1), Foo(1), CX(1, 2))
-
-
-def u1(theta: float) -> GateType:
-    class U1(OneBitGate):
-        def __init__(self, qubit: int):
-            super().__init__(qubit, f"u1({theta})")
-
-    return U1
 
 
 circuit: CIRCUIT = [

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 QUBIT = int
 QUBITS = tuple[QUBIT, ...]
@@ -10,18 +10,20 @@ class Gate:
     opcode: str
     qubits: QUBITS
 
-    def __init__(self, qubits: QUBITS, opcode: str | None = None) -> None:
+    def __init__(self, *qubits: QUBIT, opcode: str | None = None) -> None:
         self.opcode = opcode or self.__class__.__name__.lower()
         self.qubits = qubits
 
     @property
     def inv(self) -> Gate:
-        return InverseGate(self)
+        return Gate(*self.qubits, opcode=f"inv @ {self.opcode}")
 
     def control(self, control_str: str, ctrl_qubits: QUBITS) -> Gate:
         control_str = control_str or "".join(str(int(a >= 0)) for a in ctrl_qubits)
-        control_bits = tuple(~a if a < 0 else a for a in ctrl_qubits)
-        return ControlledGate(self, control_str, control_bits)
+        ctrl_qubits = tuple(~a if a < 0 else a for a in ctrl_qubits)
+        ctrl_opcode = " @ ".join("ctrl" if c == "1" else "negctrl" for c in control_str)
+        opcode = f"{ctrl_opcode} @ {self.opcode}"
+        return Gate(*self.qubits, *ctrl_qubits, opcode=opcode)
 
     def __or__(self, ctrl: tuple[str, QUBITS] | QUBITS | int) -> Gate:
         """Syntactic sugar for controlling the gate."""
@@ -49,35 +51,42 @@ class Gate:
         return super().__init_subclass__()
 
 
-class ControlledGate(Gate):
-    def __init__(self, underlying: Gate, ctrl_str: str, ctrl_qubits: QUBITS) -> None:
-        super().__init__(underlying.qubits + ctrl_qubits)
-        ctrl_opcode = " @ ".join("ctrl" if c == "1" else "negctrl" for c in ctrl_str)
-        self.opcode = f"{ctrl_opcode} @ {underlying.opcode}"
+class ParameterizedGate:
+    """
+    A type that gives you a gate generator when provided with parameters.
+
+    This is mostly intended as a wrapper around qASM parameterised gates. For home-brewed
+    gates, just use Python functions. They are more expressive and easier to use.
+    """
+
+    gate_name: ClassVar[str]
+    formal_params: ClassVar[tuple[str, ...]]
+
+    def __init_subclass__(cls) -> None:
+        cls.gate_name = getattr(cls, "gate_name", cls.__name__.lower())
+        cls.formal_params = getattr(cls, "formal_params", ())
+
+    def __init__(self, *args: float) -> None:
+        assert len(args) == len(self.formal_params)
+        self.opcode = f"{self.gate_name}({', '.join(f'{a}' for a in args)})"
+
+    def __call__(self, *qubits: QUBIT) -> Gate:
+        return Gate(*qubits, opcode=self.opcode)
 
 
-class InverseGate(Gate):
-    def __init__(self, underlying: Gate) -> None:
-        super().__init__(underlying.qubits)
-        self.opcode = f"inv @ {underlying.opcode}"
-
-
-# Making it a little easier to get the right constructors
+# Making it a little easier to get the right constructor type checking.
+# This doesn't do anything beyond constraining the number of qubits a
+# gate can take when constructed.
 class OneBitGate(Gate):
-
-    def __init__(self, qubit: QUBIT, opcode: str | None = None) -> None:
-        super().__init__((qubit,), opcode)
+    def __init__(self, qubit: QUBIT) -> None:
+        super().__init__(qubit)
 
 
 class TwoBitGate(Gate):
-
-    def __init__(self, qubit1: QUBIT, qubit2: QUBIT, opcode: str | None = None) -> None:
-        super().__init__((qubit1, qubit2), opcode)
+    def __init__(self, qubit1: QUBIT, qubit2: QUBIT) -> None:
+        super().__init__(qubit1, qubit2)
 
 
 class ThreeBitGate(Gate):
-
-    def __init__(
-        self, qubit1: QUBIT, qubit2: QUBIT, qubit3: QUBIT, opcode: str | None = None
-    ) -> None:
-        super().__init__((qubit1, qubit2, qubit3), opcode)
+    def __init__(self, qubit1: QUBIT, qubit2: QUBIT, qubit3: QUBIT) -> None:
+        super().__init__(qubit1, qubit2, qubit3)
