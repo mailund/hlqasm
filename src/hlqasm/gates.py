@@ -6,7 +6,45 @@ QUBIT = int
 QUBITS = tuple[QUBIT, ...]
 
 
-class Gate:
+class GateType(type):
+    # Keeping track of gate definitions and their dependencies
+    body: tuple[Gate, ...] | None = None
+    dependencies: set[type[Gate]] = set()
+    no_qubits: int | None
+
+    def __init__(
+        cls,
+        name: str,
+        bases: tuple[type, ...],
+        attrs: dict[str, object],
+        no_qubit: int | None = None,
+    ) -> None:
+
+        super().__init__(name, bases, attrs)
+
+        no_qubits = no_qubit or attrs.get("no_qubits", None)
+        if no_qubits is not None and not isinstance(no_qubits, int):
+            raise ValueError(f"Expected an integer for no_qubits, got {no_qubits}")
+
+        # Collect all gate definitions to configure this class's dependencies
+        if cls.body is not None:
+            cls.dependencies = {
+                type(gate) for gate in cls.body if type(gate).body is not None
+            }
+            for gate_type in cls.dependencies:
+                cls.dependencies.update(gate_type.dependencies)
+
+            if no_qubits is None:
+                no_qubits = max(max(gate.qubits) for gate in cls.body) + 1
+
+        cls.no_qubits = no_qubits
+
+
+class Gate(metaclass=GateType):
+    """
+    A gate in the circuit.
+    """
+
     opcode: str
     qubits: QUBITS
 
@@ -14,14 +52,21 @@ class Gate:
         self.opcode = opcode or self.__class__.__name__.lower()
         self.qubits = qubits
 
+        if type(self).no_qubits is not None and len(qubits) != type(self).no_qubits:
+            raise ValueError(
+                f"Expected {type(self).no_qubits} qubits, got {len(qubits)}: {qubits}"
+            )
+
     def __repr__(self) -> str:
         return f"Gate(*{self.qubits!r}, opcode={self.opcode!r})"
 
     @property
     def inv(self) -> Gate:
+        """Getting the inverse of this gate."""
         return Gate(*self.qubits, opcode=f"inv @ {self.opcode}")
 
     def control(self, control_str: str, ctrl_qubits: QUBITS) -> Gate:
+        """Transform this gate into a controlled gate."""
         control_str = control_str or "".join(str(int(a >= 0)) for a in ctrl_qubits)
         ctrl_qubits = tuple(~a if a < 0 else a for a in ctrl_qubits)
         ctrl_opcode = " @ ".join("ctrl" if c == "1" else "negctrl" for c in control_str)
@@ -38,23 +83,8 @@ class Gate:
             case tuple(bits):
                 return self.control("", bits)
 
-    # Keeping track of gate definitions and their dependencies
-    body: ClassVar[tuple[Gate, ...] | None] = None
-    dependencies: ClassVar[set[type[Gate]]] = set()
 
-    def __init_subclass__(cls) -> None:
-        # Collect all gate definitions
-        if cls.body is not None:
-            cls.dependencies = {
-                type(gate) for gate in cls.body if type(gate).body is not None
-            }
-            for gate_type in cls.dependencies:
-                cls.dependencies.update(gate_type.dependencies)
-
-        return super().__init_subclass__()
-
-
-class ParameterizedGate:
+class ParameterizedGate(GateType):
     """
     A type that gives you a gate generator when provided with parameters.
 
@@ -69,27 +99,23 @@ class ParameterizedGate:
         cls.gate_name = getattr(cls, "gate_name", cls.__name__.lower())
         cls.formal_params = getattr(cls, "formal_params", ())
 
+    def __new__(cls, *_ignored: float) -> ParameterizedGate:
+        """
+        Create a new parameterised gate.
+
+        Creating a new parameterised gate means making a new class
+        (because we model gate types as meta-classes) so we need to map the __new__
+        arguments to those expected for classes).
+        """
+        return super().__new__(cls, "ParameterizedGate", (ParameterizedGate,), {})
+
     def __init__(self, *args: float) -> None:
-        assert len(args) == len(self.formal_params)
+        if len(args) != len(self.formal_params):
+            raise ValueError(
+                f"Expected {len(self.formal_params)} parameters, got {len(args)}"
+            )
+
         self.opcode = f"{self.gate_name}({', '.join(f'{a}' for a in args)})"
 
     def __call__(self, *qubits: QUBIT) -> Gate:
         return Gate(*qubits, opcode=self.opcode)
-
-
-# Making it a little easier to get the right constructor type checking.
-# This doesn't do anything beyond constraining the number of qubits a
-# gate can take when constructed.
-class OneBitGate(Gate):
-    def __init__(self, qubit: QUBIT) -> None:
-        super().__init__(qubit)
-
-
-class TwoBitGate(Gate):
-    def __init__(self, qubit1: QUBIT, qubit2: QUBIT) -> None:
-        super().__init__(qubit1, qubit2)
-
-
-class ThreeBitGate(Gate):
-    def __init__(self, qubit1: QUBIT, qubit2: QUBIT, qubit3: QUBIT) -> None:
-        super().__init__(qubit1, qubit2, qubit3)

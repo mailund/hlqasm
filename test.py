@@ -1,7 +1,6 @@
 import math
 
-from hlqasm.gates import OneBitGate, ThreeBitGate
-from hlqasm.stdgates import CX, H, X, u1
+from hlqasm.stdgates import CX, H, OneBitGate, ThreeBitGate, X, u1
 
 
 class Bar(ThreeBitGate):
