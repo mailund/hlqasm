@@ -2,7 +2,7 @@ import itertools
 from graphlib import TopologicalSorter
 from typing import Iterable, Iterator, Protocol
 
-from gates import Gate
+from .gates import Gate
 
 CIRCUIT = list["Gate | CIRCUIT"]
 
@@ -86,6 +86,9 @@ def emit_circuit(circuit: CIRCUIT) -> str:
 
     # Sort the gate types since qASM (or at least qiskit) requires
     # that we define a gate before we use it.
+    # If we go in this direction we also need a handle name clashes.
+    # The earlier solution did this, but it was a bit hacky and didn't
+    # handle all cases.
     deps = {
         gate_type: [dep for dep in gate_type.dependencies]
         for gate_type in extract_gate_types(gates)

@@ -1,0 +1,2 @@
+[console_scripts]
+hlqasm = hlqasm_scripts:main

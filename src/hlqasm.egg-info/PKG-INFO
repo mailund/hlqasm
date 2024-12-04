@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: hlqasm
+Version: 0.1.0
+Summary: Higher-level QASM
+Author-email: Thomas Mailund <thomas@mailund.dk>
+Requires-Python: >=3.13
+Description-Content-Type: text/markdown
+Requires-Dist: pytest
+Requires-Dist: pytest-cov
+
+# hlqasm

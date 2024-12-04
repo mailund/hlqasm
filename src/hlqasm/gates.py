@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar, Literal
+from typing import ClassVar
 
 QUBIT = int
 QUBITS = tuple[QUBIT, ...]
@@ -13,6 +13,9 @@ class Gate:
     def __init__(self, *qubits: QUBIT, opcode: str | None = None) -> None:
         self.opcode = opcode or self.__class__.__name__.lower()
         self.qubits = qubits
+
+    def __repr__(self) -> str:
+        return f"Gate(*{self.qubits!r}, opcode={self.opcode!r})"
 
     @property
     def inv(self) -> Gate:

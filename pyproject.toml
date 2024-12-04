@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hlqasm"
+version = "0.1.0"
+description = "Higher-level QASM"
+authors = [{name = "Thomas Mailund", email = "thomas@mailund.dk"}]
+requires-python = ">= 3.13"
+readme = "README.md"
+license = {file = "LICENSE"}
+dependencies = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.scripts]
+hlqasm = "hlqasm_scripts:main"
+
+[tool.pytest.ini_options]
+python_classes = ["Test"]
+python_functions = ["test_"]
+python_files = ["*_test.py",]
+addopts = ["--cov=stralg", "--cov-report=term-missing"]

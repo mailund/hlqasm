@@ -1,0 +1,4 @@
+pytest
+pytest-cov
+qiskit
+qiskit_qasm3_import

@@ -1,4 +1,4 @@
-from gates import OneBitGate, ParameterizedGate, TwoBitGate
+from .gates import OneBitGate, ParameterizedGate, TwoBitGate
 
 
 class H(OneBitGate):
@@ -15,9 +15,3 @@ class CX(TwoBitGate):
 
 class u1(ParameterizedGate):
     formal_params = ("theta",)
-
-
-u1(0.0)()
-u1(0.0)(0)
-u1(0.0)(0, 1)
-u1(0.0)(0, 1, 2)
