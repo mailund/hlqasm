@@ -4,13 +4,13 @@ from typing import Iterable, Iterator, Protocol
 
 from .gates import Gate
 
-CIRCUIT = list["Gate | CIRCUIT"]
+GateStream = list["Gate | GateStream"]
 
 
-def flatten_circuit(circuit: CIRCUIT) -> list[Gate]:
+def flatten_circuit(circuit: GateStream) -> list[Gate]:
     return list(
         itertools.chain(
-            *[flatten_circuit(g) if isinstance(g, list) else [g] for g in circuit]
+            *[flatten_circuit(g) if not isinstance(g, Gate) else [g] for g in circuit]
         )
     )
 
@@ -80,9 +80,10 @@ def extract_gate_types(gates: Iterable[Gate]) -> set[type[Gate]]:
     return gate_types
 
 
-def emit_circuit(circuit: CIRCUIT) -> str:
-    global_scope = GlobalQubitScope()
+def emit_circuit(circuit: GateStream) -> str:
     gates = flatten_circuit(circuit)
+    if not gates:
+        return "OPENQASM 3.0;"
 
     # Sort the gate types since qASM (or at least qiskit) requires
     # that we define a gate before we use it.
@@ -96,6 +97,10 @@ def emit_circuit(circuit: CIRCUIT) -> str:
     gate_types = TopologicalSorter(deps).static_order()
     gate_defs = "\n".join(filter(None, map(emit_gate_type, gate_types)))
 
+    # FIXME: get a better register allocation than this
+    no_qubits = max(qubits_in_gates(gates)) + 1
+
+    global_scope = GlobalQubitScope()
     return "\n".join(
         [
             "OPENQASM 3.0;",
@@ -103,7 +108,7 @@ def emit_circuit(circuit: CIRCUIT) -> str:
             "",
             gate_defs,
             "",
-            "qubit[3] reg;",
+            f"qubit[{no_qubits}] reg;",  # FIXME: get a better register allocation than this
             "",
             "\n".join(emit_gates(gates, global_scope)),
         ]

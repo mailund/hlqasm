@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import ClassVar
+import copy
+from typing import Any, ClassVar, Iterable, Self
 
 QUBIT = int
 QUBITS = tuple[QUBIT, ...]
@@ -8,7 +9,8 @@ QUBITS = tuple[QUBIT, ...]
 
 class GateType(type):
     # Keeping track of gate definitions and their dependencies
-    body: tuple[Gate, ...] | None = None
+    name: str
+    body: Iterable[Gate] | None = None
     dependencies: set[type[Gate]] = set()
     no_qubits: int | None
 
@@ -21,6 +23,8 @@ class GateType(type):
     ) -> None:
 
         super().__init__(name, bases, attrs)
+
+        cls.name = name.lower()
 
         no_qubits = no_qubit or attrs.get("no_qubits", None)
         if no_qubits is not None and not isinstance(no_qubits, int):
@@ -48,6 +52,11 @@ class Gate(metaclass=GateType):
     opcode: str
     qubits: QUBITS
 
+    @property
+    def name(self) -> str:
+        """The name of the gate."""
+        return self.__class__.__name__.lower()
+
     def __init__(self, *qubits: QUBIT, opcode: str | None = None) -> None:
         self.opcode = opcode or self.__class__.__name__.lower()
         self.qubits = qubits
@@ -71,7 +80,7 @@ class Gate(metaclass=GateType):
         ctrl_qubits = tuple(~a if a < 0 else a for a in ctrl_qubits)
         ctrl_opcode = " @ ".join("ctrl" if c == "1" else "negctrl" for c in control_str)
         opcode = f"{ctrl_opcode} @ {self.opcode}"
-        return Gate(*self.qubits, *ctrl_qubits, opcode=opcode)
+        return Gate(*ctrl_qubits, *self.qubits, opcode=opcode)
 
     def __or__(self, ctrl: tuple[str, QUBITS] | QUBITS | int) -> Gate:
         """Syntactic sugar for controlling the gate."""
@@ -82,6 +91,22 @@ class Gate(metaclass=GateType):
                 return self.control(ctrl_str, ctrl_bits)
             case tuple(bits):
                 return self.control("", bits)
+
+    def __replace__(self, /, **changes: Any) -> Self:
+        cpy = copy.copy(self)
+        for key, value in changes.items():
+            if key not in self.__dict__:
+                raise ValueError(f"Unknown attribute {key}")
+            setattr(cpy, key, value)
+        return cpy
+
+    def relocate(self, qubit_map: dict[QUBIT, QUBIT]) -> Self:
+        """Relocate the gate to new qubits."""
+        try:
+            qubits = tuple(qubit_map[q] for q in self.qubits)
+            return copy.replace(self, qubits=qubits)
+        except KeyError as e:
+            raise KeyError(f"Error mapping {self.qubits} through {qubit_map}") from e
 
 
 class ParameterizedGate(GateType):

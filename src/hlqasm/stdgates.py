@@ -33,8 +33,24 @@ class X(OneBitGate):
     pass
 
 
+class Y(OneBitGate):
+    pass
+
+
+class Z(OneBitGate):
+    pass
+
+
+class I(OneBitGate):
+    pass
+
+
 class CX(TwoBitGate):
     pass
+
+
+class Toffoli(ThreeBitGate):
+    body = [X(2) | (0, 1)]
 
 
 class u1(ParameterizedGate):

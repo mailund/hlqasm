@@ -5,10 +5,10 @@ from typing import Any
 
 from qiskit import qasm3  # type: ignore
 
-from hlqasm import CIRCUIT, emit_circuit
+from hlqasm import GateStream, emit_circuit
 
 
-def load_hlqasm_module(file_path: str) -> CIRCUIT:
+def load_hlqasm_module(file_path: str) -> GateStream:
     spec = importlib.util.spec_from_file_location("hlqasm_module", file_path)
     if spec is None or spec.loader is None:
         raise ValueError(f"Could not load module from {file_path}")
@@ -24,7 +24,7 @@ def load_hlqasm_module(file_path: str) -> CIRCUIT:
     return circuit
 
 
-def plot_circuit(circuit: CIRCUIT) -> None:
+def plot_circuit(circuit: GateStream) -> None:
     with tempfile.TemporaryDirectory() as td:
         fname = f"{td}/circuit.qasm"
         with open(fname, "w") as f:
