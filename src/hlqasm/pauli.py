@@ -39,7 +39,6 @@ def pauli_gate(pauli_string: str) -> type[Gate]:
     Returns:
         list: A list of Gate objects representing the quantum circuit.
     """
-    pauli_string = pauli_string.lower()
 
     class PauliGate(Gate):
         no_qubits = len(pauli_string)
